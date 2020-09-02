@@ -1,0 +1,63 @@
+---
+
+  - name: Check For Updates
+    yum: list=updates update_cache=true
+    register: yum_check
+
+  - name: Install Dependencies For Docker
+    yum:
+      name: ['yum-utils', 'device-mapper-persistent-data', 'lvm2']
+      state: present
+    when: yum_check is succeeded
+    register: install_dependencies
+  
+
+  - name: Add Repository For Docker
+    command: 'yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo'
+    args:
+      warn: false
+    when: install_dependencies is succeeded
+    register: repo_for_docker
+
+  - name: Install Docker
+    yum:
+      name: docker
+      state: present
+    when: repo_for_docker is succeeded
+    register: docker_installation
+
+
+  - name: Add Openshift Registries To White List
+    template:
+      src: templates/openshift_registries.j2
+      dest: /etc/docker/daemon.js
+    when: docker_installation is succeeded
+    register: adding_external_registries
+
+
+
+  - name: Start Docker
+    systemd: name="docker" state="started" enabled="yes"
+    when: adding_external_registries is succeeded
+    register: start_docker_service
+
+  
+  - name: Test Whether Docker Is Running
+    command: systemctl status docker
+    ignore_errors: yes
+    changed_when: false
+    when: start_docker_service is succeeded
+    register: test_docker_service
+
+
+  - name: Report status of Docker
+    fail:
+     msg: |
+      Service Docker is not running.
+      Output of `systemctl status jenkins`:
+      {{ test_docker_service.stdout }}
+      {{ test_docker_service.stderr }}
+    when: test_docker_service is failed
+
+ 
+

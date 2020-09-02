@@ -1,0 +1,94 @@
+---
+
+  - name: Install Jave For Jenkins
+    yum:
+      name: java-1.8.0-openjdk-devel
+      state: present
+    register: java_installation_for_jenkins
+  
+  - name: Import GPG Key For Jenkins
+    get_url:
+      url: http://pkg.jenkins-ci.org/redhat-stable/jenkins.repo
+      dest: /etc/yum.repos.d/
+    when: java_installation_for_jenkins is succeeded
+    register: gpg_key_for_jenkins
+
+  - name: Add Repository For Jenkins
+    command: 'sudo rpm --import https://pkg.jenkins.io/redhat/jenkins.io.key'
+    args:
+      warn: false
+    when: gpg_key_for_jenkins is succeeded
+    register: repo_for_jenkins
+
+  - name: Install Jenkins
+    yum:
+      name: jenkins
+      state: present
+    when: gpg_key_for_jenkins is succeeded
+    register: jenkins_installation
+
+  - name: Install Epel-Release 
+    yum: 
+      name: epel-release
+      state: present
+    when: jenkins_installation is succeeded
+    register: epel_release  
+
+  - name: Install Nginx
+    yum:
+      name: nginx
+      state: present
+    when: epel_release is succeeded
+    register: nginx_for_jenkins
+
+  - name: Configure Virtual Host For Jenkins
+    template:
+      src: templates/nginx_jenkins_reverse_proxy.j2
+      dest: /etc/nginx/conf.d/jenkins.ibar.com.conf
+    when: nginx_for_jenkins is succeeded
+    register: virtual_host_for_jenkins
+
+  - name: Start Nginx
+    service: name="nginx" state="started" enabled="yes"
+    when: virtual_host_for_jenkins is succeeded
+    register: nginx_service
+
+  - name: Start Jenkins
+    systemd: name="jenkins" state="started" enabled="yes"
+    when: nginx_service is succeeded
+    register: jenkins_service
+
+  
+  - name: Test Whether Jenkins Is Running
+    command: systemctl status jenkins
+    ignore_errors: yes
+    changed_when: false
+    when: jenkins_service is succeeded
+    register: service_jenkins
+
+
+  - name: Report status of Jenkins
+    fail:
+     msg: |
+      Service jenkins is not running.
+      Output of `systemctl status jenkins`:
+      {{ service_jenkins.stdout }}
+      {{ service_jenkins.stderr }}
+    when: service_jenkins is failed
+
+  - name: Wait until the file /var/lib/jenkins/secrets/initialAdminPassword is present before continuing
+    wait_for:
+      path: /var/lib/jenkins/secrets/initialAdminPassword
+    when: service_jenkins is succeeded
+    register: generation_initial_admin_password 
+   
+  - name: Print Initial Admin Password
+    command: cat /var/lib/jenkins/secrets/initialAdminPassword
+    when:  generation_initial_admin_password is succeeded
+    register: initial_admin_password
+
+  - debug:
+      msg: 
+      - "Initial Admin Password is: {{initial_admin_password.stdout}}" 
+
+

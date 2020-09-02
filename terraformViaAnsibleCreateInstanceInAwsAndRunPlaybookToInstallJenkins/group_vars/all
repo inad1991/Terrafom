@@ -1,0 +1,5 @@
+---
+jenkins_url: jenkins.ibar.com
+openshift_test_registry: docker-registry-default.lab.ibar.az
+openshift_prod_registry: docker-registry-default.apps.ocp.ibar.az
+docker_compose_version: 1.24.1

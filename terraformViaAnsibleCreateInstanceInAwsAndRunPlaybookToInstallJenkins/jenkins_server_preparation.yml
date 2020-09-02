@@ -1,0 +1,44 @@
+---
+
+- hosts: all
+
+  become: true
+
+  gather_facts: true
+
+  tasks:
+
+
+
+  - include: jenkins.yml
+
+    when:
+
+       - ansible_facts['distribution'] == "CentOS"
+
+       - ansible_facts['distribution_major_version'] == "7"
+    tags:
+      - jenkins
+
+
+  - include: docker.yml
+    
+    when:
+
+      - ansible_facts['distribution'] == "CentOS"
+
+      - ansible_facts['distribution_major_version'] == "7"
+    tags:
+      - docker
+
+  - include: docker-compose.yml
+    
+    when:
+
+      - ansible_facts['distribution'] == "CentOS"
+
+      - ansible_facts['distribution_major_version'] == "7" 
+
+    tags: 
+      - docker-compose
+

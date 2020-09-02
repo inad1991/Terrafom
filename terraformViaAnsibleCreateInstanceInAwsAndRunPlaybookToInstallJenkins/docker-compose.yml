@@ -1,0 +1,13 @@
+---
+  - name: Downloading Docker Compose Binary
+    shell: curl -L "https://github.com/docker/compose/releases/download/{{docker_compose_version}}/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+    args:
+      warn: false
+    register: docker_compose_binary
+
+  - name: Assign Excute Mode For Docker Compose
+    file:
+      path:  /usr/local/bin/docker-compose
+      mode: '0755'
+    when: docker_compose_binary is succeeded
+
